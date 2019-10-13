@@ -20,6 +20,7 @@
 #include "scoreview.h"
 #include "exportmidi.h"
 #include "libmscore/xml.h"
+#include "libmscore/brf.h"
 #include "libmscore/element.h"
 #include "libmscore/note.h"
 #include "libmscore/rest.h"
@@ -1973,6 +1974,10 @@ bool MuseScore::saveAs(Score* cs_, bool saveCopy, const QString& path, const QSt
             // save as pdf file *.pdf
             cs_->switchToPageMode();
             rv = savePdf(cs_, fn);
+            }
+      else if (ext == "brf") {
+            // save as brf file *.brf
+            rv = saveBrf(cs_, fn);
             }
       else if (ext == "png") {
             // save as png file *.png
