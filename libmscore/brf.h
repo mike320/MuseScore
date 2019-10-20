@@ -1,10 +1,5 @@
-
-
-//=============================================================================
-
 #ifndef BRF_H
 #define BRF_H
-
 #include "connector.h"
 #include "stafftype.h"
 #include "interval.h"
@@ -12,6 +7,198 @@
 #include "select.h"
 
 namespace Ms {
+
+enum class PlaceText : char;
+enum class ClefType : signed char;
+class Spanner;
+class Beam;
+class Tuplet;
+class Measure;
+class LinkedElements;
+
+//---------------------------------------------------------
+//   SpannerValues
+//---------------------------------------------------------
+
+struct SpannerValues {
+      int spannerId;
+      Fraction tick2;
+      int track2;
+      };
+
+//---------------------------------------------------------
+//   TextStyleMap
+//---------------------------------------------------------
+
+struct TextStyleMap {
+      QString name;
+      Tid ss;
+      };
+
+//---------------------------------------------------------
+//   LinksIndexer
+//---------------------------------------------------------
+
+class LinksIndexer {
+      int _lastLocalIndex              { -1                    };
+      Location _lastLinkedElementLoc   { Location::absolute()  };
+
+   public:
+      int assignLocalIndex(const Location& mainElementInfo);
+      };
+/*  BrfReader will not be initially implemented, perhaps later
+ *
+//---------------------------------------------------------
+//   BrfReader
+//---------------------------------------------------------
+
+class BrfReader : public QBrfStreamReader {
+      QString docName;  // used for error reporting
+
+      // For readahead possibility.
+      // If needed, must be explicitly set by setReadAheadDevice.
+      QIODevice* _readAheadDevice = nullptr;
+
+      // Score read context (for read optimizations):
+      Fraction _tick             { Fraction(0, 1) };
+      Fraction _tickOffset       { Fraction(0, 1) };
+      int _intTick          { 0       };
+      int _track            { 0       };
+      int _trackOffset      { 0       };
+      bool _pasteMode       { false   };        // modifies read behaviour on paste operation
+      Measure* _lastMeasure { 0       };
+      Measure* _curMeasure  { 0       };
+      int _curMeasureIdx    { 0       };
+      QHash<int, Beam*>    _beams;
+      QHash<int, Tuplet*>  _tuplets;
+
+      QList<SpannerValues> _spannerValues;
+      QList<std::pair<int,Spanner*>> _spanner;
+      QList<StaffType> _staffTypes;
+      QList<std::pair<Element*, QPointF>> _fixOffsets;
+
+      std::vector<std::unique_ptr<ConnectorInfoReader>> _connectors;
+      std::vector<std::unique_ptr<ConnectorInfoReader>> _pendingConnectors; // connectors that are pending to be updated and added to _connectors. That will happen when checkConnectors() is called.
+
+      void htmlToString(int level, QString*);
+      Interval _transpose;
+      QMap<int, LinkedElements*> _elinks; // for reading old files (< 3.01)
+      QMap<int, QList<QPair<LinkedElements*, Location>>> _staffLinkedElements; // one list per staff
+      LinksIndexer _linksIndexer;
+      QMultiMap<int, int> _tracks;
+
+      QList<TextStyleMap> userTextStyles;
+
+      void addConnectorInfo(std::unique_ptr<ConnectorInfoReader>);
+      void removeConnector(const ConnectorInfoReader*); // Removes the whole ConnectorInfo chain from the connectors list.
+
+   public:
+      BrfReader(QFile* f) : QBrfStreamReader(f), docName(f->fileName()) {}
+      BrfReader(const QByteArray& d, const QString& st = QString()) : QBrfStreamReader(d), docName(st)  {}
+      BrfReader(QIODevice* d, const QString& st = QString()) : QBrfStreamReader(d), docName(st) {}
+      BrfReader(const QString& d, const QString& st = QString()) : QBrfStreamReader(d), docName(st) {}
+      BrfReader(const BrfReader&) = delete;
+      BrfReader& operator=(const BrfReader&) = delete;
+      ~BrfReader();
+
+      bool hasAccidental;                     // used for userAccidental backward compatibility
+      void unknown();
+
+      // attribute helper routines:
+      QString attribute(const char* s) const { return attributes().value(s).toString(); }
+      QString attribute(const char* s, const QString&) const;
+      int intAttribute(const char* s) const;
+      int intAttribute(const char* s, int _default) const;
+      double doubleAttribute(const char* s) const;
+      double doubleAttribute(const char* s, double _default) const;
+      bool hasAttribute(const char* s) const;
+
+      // helper routines based on readElementText():
+      int readInt()            { return readElementText().toInt();      }
+      int readInt(bool* ok)    { return readElementText().toInt(ok);    }
+      int readIntHex()         { return readElementText().toInt(0, 16); }
+      double readDouble()      { return readElementText().toDouble();   }
+      qlonglong readLongLong() { return readElementText().toLongLong(); }
+
+      double readDouble(double min, double max);
+      bool readBool();
+      QPointF readPoint();
+      QSizeF readSize();
+      QRectF readRect();
+      QColor readColor();
+      Fraction readFraction();
+      QString readBrf();
+
+      void setDocName(const QString& s) { docName = s; }
+      QString getDocName() const        { return docName; }
+
+      Fraction tick()  const            { return _tick + _tickOffset; }
+      Fraction rtick()  const ;
+      void setTick(const Fraction& f);
+      void incTick(const Fraction& f);
+      void setTickOffset(const Fraction& val) { _tickOffset = val; }
+
+      int track() const            { return _track + _trackOffset;     }
+      void setTrackOffset(int val) { _trackOffset = val;   }
+      int trackOffset() const      { return _trackOffset;   }
+      void setTrack(int val)       { _track = val;      }
+      bool pasteMode() const       { return _pasteMode; }
+      void setPasteMode(bool v)    { _pasteMode = v;    }
+
+      Location location(bool forceAbsFrac = false) const;
+      void fillLocation(Location&, bool forceAbsFrac = false) const;
+      void setLocation(const Location&); // sets a new reading point, taking into
+                                         // account its type (absolute or relative).
+
+      void addBeam(Beam* s);
+      Beam* findBeam(int id) const          { return _beams.value(id);   }
+
+      void addTuplet(Tuplet* s);
+      Tuplet* findTuplet(int id) const      { return _tuplets.value(id); }
+      QHash<int, Tuplet*>& tuplets()        { return _tuplets; }
+
+      void setLastMeasure(Measure* m)       { _lastMeasure = m;    }
+      Measure* lastMeasure() const          { return _lastMeasure; }
+      void setCurrentMeasure(Measure* m)    { _curMeasure = m; }
+      Measure* currentMeasure() const       { return _curMeasure; }
+      void setCurrentMeasureIndex(int idx)  { _curMeasureIdx = idx;  }
+      int currentMeasureIndex() const       { return _curMeasureIdx; }
+
+      void removeSpanner(const Spanner*);
+      void addSpanner(int id, Spanner*);
+      Spanner* findSpanner(int id);
+
+      int spannerId(const Spanner*);      // returns spanner id, allocates new one if none exists
+
+      void addSpannerValues(const SpannerValues& sv) { _spannerValues.append(sv); }
+      const SpannerValues* spannerValues(int id) const;
+
+      void addConnectorInfoLater(std::unique_ptr<ConnectorInfoReader> c) { _pendingConnectors.push_back(std::move(c)); } // add connector info to be checked after calling checkConnectors()
+      void checkConnectors();
+      void reconnectBrokenConnectors();
+
+      QList<StaffType>& staffType()     { return _staffTypes; }
+      Interval transpose() const        { return _transpose; }
+      void setTransposeChromatic(int v) { _transpose.chromatic = v; }
+      void setTransposeDiatonic(int v)  { _transpose.diatonic = v; }
+
+      LinkedElements* getLink(bool masterScore, const Location& l, int localIndexDiff);
+      void addLink(Staff* staff, LinkedElements* link);
+      QMap<int, LinkedElements*>& linkIds() { return _elinks;     }
+      QMultiMap<int, int>& tracks()         { return _tracks;     }
+
+      void checkTuplets();
+      Tid addUserTextStyle(const QString& name);
+      Tid lookupUserTextStyle(const QString& name);
+
+      // Ownership on read ahead device is NOT transfered to BrfReader.
+      void setReadAheadDevice(QIODevice* dev) { if (!dev->isSequential()) _readAheadDevice = dev; }
+      bool readAheadAvailable() const { return bool(_readAheadDevice); }
+      void performReadAhead(std::function<void(QIODevice&)> readAheadRoutine);
+
+      QList<std::pair<Element*, QPointF>>& fixOffsets() { return  _fixOffsets; }
+      };
+*/
 
 //---------------------------------------------------------
 //   BrfWriter
@@ -116,5 +303,6 @@ class BrfWriter : public QTextStream {
       static QString brfString(ushort c);
       };
 
+extern PlaceText readPlacement(BrfReader&);
 }     // namespace Ms
 #endif // BRF_H
