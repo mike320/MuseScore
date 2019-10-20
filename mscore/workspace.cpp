@@ -310,10 +310,6 @@ Workspace::Workspace()
       saveComponents = false;
       saveToolbars = false;
       saveMenuBar = false;
-
-      _saveTimer.setInterval(0);
-      _saveTimer.setSingleShot(true);
-      connect(&_saveTimer, &QTimer::timeout, this, &Workspace::ensureWorkspaceSaved);
       }
 
 //---------------------------------------------------------
@@ -712,7 +708,7 @@ std::unique_ptr<PaletteTree> Workspace::getPaletteTree() const
                         e.skipCurrentElement();
                   }
             });
-      return paletteTree;
+      return std::move(paletteTree);
       }
 
 void Workspace::read(XmlReader& e)
@@ -1111,9 +1107,15 @@ void Workspace::save()
       if (!saveToolbars)
             writeGlobalToolBar();
 
-      if (_readOnly)
+      if (_readOnly) {
+            PaletteWorkspace* pw = mscore->getPaletteWorkspace();
+            if (pw->paletteChanged()) { // TODO: use Workspace::dirty instead
+                  const QString customizedWorkspaceName(name() + "__edited"); // TODO: ?
+                  Workspace::currentWorkspace = createNewWorkspace(customizedWorkspaceName);
+                  mscore->changeWorkspace(customizedWorkspaceName); // HACK: just to get that name reflected in preferences...
+                  }
             return;
-
+            }
       write();
       }
 

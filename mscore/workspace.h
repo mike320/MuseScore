@@ -54,8 +54,6 @@ class Workspace : public QObject {
       bool _dirty;
       bool _readOnly;
 
-      QTimer _saveTimer;
-
       bool saveComponents;
       bool saveToolbars;
       bool saveMenuBar;
@@ -68,8 +66,7 @@ class Workspace : public QObject {
       void ensureWorkspaceSaved();
 
    public slots:
-      void setDirty(bool val);
-      void setDirty() { setDirty(true); }
+      void setDirty(bool val = true) { _dirty = val;    }
 
    public:
       Workspace();

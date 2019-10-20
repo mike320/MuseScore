@@ -331,7 +331,7 @@ GridView {
     }
 
     function removeSelectedCells() {
-        Utils.removeSelectedItems(paletteController, selectionModel, paletteRootIndex);
+        Utils.removeSelectedItems(paletteModel, paletteController, paletteSelectionModel, paletteRootIndex);
     }
 
     Keys.onDeletePressed: {

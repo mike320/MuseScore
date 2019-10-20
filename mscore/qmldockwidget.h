@@ -154,6 +154,7 @@ class QmlDockWidget : public QDockWidget
 
    protected:
       QSize initialViewSize() const { return _view ? _view->initialSize() : QSize(); }
+      void ensureQmlViewFocused();
 
    public:
       QmlDockWidget(QQmlEngine* e = nullptr, QWidget* parent = nullptr, Qt::WindowFlags flags = Qt::WindowFlags());

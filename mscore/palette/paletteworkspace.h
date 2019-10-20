@@ -71,8 +71,7 @@ class AbstractPaletteController : public QObject {
       enum class RemoveAction {
             NoAction,
             Hide,
-            DeletePermanently,
-            AutoAction
+            DeletePermanently
             };
 
       AbstractPaletteController(QObject* parent = nullptr) : QObject(parent) {}
@@ -86,8 +85,7 @@ class AbstractPaletteController : public QObject {
       Q_INVOKABLE virtual bool move(const QModelIndex& sourceParent, int sourceRow, const QModelIndex& destinationParent, int destinationChild) = 0;
       Q_INVOKABLE virtual bool insert(const QModelIndex& parent, int row, const QVariantMap& mimeData, Qt::DropAction action) = 0;
       Q_INVOKABLE virtual bool insertNewItem(const QModelIndex& parent, int row) = 0;
-      Q_INVOKABLE virtual void remove(const QModelIndex&) = 0;
-      Q_INVOKABLE virtual void removeSelection(const QModelIndexList&, const QModelIndex& parent) = 0;
+      Q_INVOKABLE virtual bool remove(const QModelIndex&) { return false; };
 
       Q_INVOKABLE virtual bool canEdit(const QModelIndex&) const { return false; }
 
@@ -117,16 +115,8 @@ class UserPaletteController : public AbstractPaletteController {
 
       bool canDropElements() const override { return _userEditable; }
 
-      void showHideOrDeleteDialog(const QString& question, std::function<void(RemoveAction)> resultHandler) const;
-      void queryRemove(const QModelIndexList&, int customCount);
-
-      enum RemoveActionConfirmationType {
-            NoConfirmation,
-            CustomCellHideDeleteConfirmation,
-            CustomPaletteHideDeleteConfirmation
-            };
-
-      void remove(const QModelIndexList&, AbstractPaletteController::RemoveAction);
+      AbstractPaletteController::RemoveAction showHideOrDeleteDialog(const QString& question) const;
+      AbstractPaletteController::RemoveAction queryRemoveAction(const QModelIndex& index) const;
 
    protected:
       QAbstractItemModel* model() { return _model; }
@@ -146,8 +136,7 @@ class UserPaletteController : public AbstractPaletteController {
       bool move(const QModelIndex& sourceParent, int sourceRow, const QModelIndex& destinationParent, int destinationChild) override;
       bool insert(const QModelIndex& parent, int row, const QVariantMap& mimeData, Qt::DropAction action) override;
       bool insertNewItem(const QModelIndex& parent, int row) override;
-      void remove(const QModelIndex& index) override;
-      void removeSelection(const QModelIndexList&, const QModelIndex& parent) override;
+      bool remove(const QModelIndex& index) override;
 
       void editPaletteProperties(const QModelIndex& index) override;
       void editCellProperties(const QModelIndex& index) override;
@@ -195,9 +184,6 @@ class PaletteWorkspace : public QObject {
             CustomRole = Qt::UserRole + 1,
             PaletteIndexRole
             };
-
-   signals:
-      void userPaletteChanged();
 
    public:
       explicit PaletteWorkspace(PaletteTreeModel* user, PaletteTreeModel* master = nullptr, QObject* parent = nullptr);

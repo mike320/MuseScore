@@ -70,11 +70,9 @@ class PowerTab {
                   virtual Type type() {
                         return Empty;
                         };
-                  
-                  virtual ~ptComponent() {}
                   };
 
-            struct stRhytmSlash final : public ptComponent {
+            struct stRhytmSlash : public ptComponent {
                   int position {0};
                   int duration {0};
                   bool triplet{ false };
@@ -84,39 +82,39 @@ class PowerTab {
                   bool is_rest{ false };
                   };
 
-            struct ptGuitarIn final : public ptComponent {
+            struct ptGuitarIn : public ptComponent {
                   int rhytmSlash{ true };
                   int staff{ 0 };
                   int trackinfo{ 0 };
                   int section{ 0 };
                   int position{ 0 };
-                  Type type() override {
+                  Type type() {
                         return GuitarIn;
                         }
                   };
 
-            struct ptSymbol final : public ptComponent {
+            struct ptSymbol : public ptComponent {
                   int value{ 0 };
                   ptSymbol(int val) : value(val) {}
-                  Type type() override {
+                  Type type() {
                         return Symbol;
                         }
                   };
 
-            struct ptBar final : public ptComponent {
+            struct ptBar : public ptComponent {
                   int         measureNo{ 0 };
                   int         repeatClose{ 0 };
                   bool  repeatStart{ false };
 
                   int         numerator{ 0 };
                   int         denominator{ 0 };
-                  Type type() override {
+                  Type type() {
                         return Bar;
                         }
                   };
             std::vector<ptBar*> bars;
 
-            struct ptNote final : public ptComponent {
+            struct ptNote : public ptComponent {
                   int               value{ 0 };
                   int               str{ 0 };
                   int               bend{0};
@@ -124,12 +122,12 @@ class PowerTab {
                   bool        dead{ false };
                   bool        hammer{ false };
                   int               slide{ 0 };
-                  Type type() override {
+                  Type type() {
                         return Note;
                         }
                   };
 
-            struct ptChord final : public ptComponent {
+            struct ptChord : public ptComponent {
                   int key;
                   int formula;
                   int modification;
@@ -138,7 +136,7 @@ class PowerTab {
                   std::vector<int> frets;
                   };
 
-            struct ptChordText final : public ptComponent {
+            struct ptChordText : public ptComponent {
                   int position;
                   int key;
                   int formula;
@@ -146,7 +144,7 @@ class PowerTab {
                   int extra;
                   };
 
-            struct ptBeat final : public ptComponent {
+            struct ptBeat : public ptComponent {
                   int                           position{ 0 };
                   int                           staff{ 0 };
                   int                           voice{ 0 };
@@ -168,12 +166,12 @@ class PowerTab {
                   std::vector<ptNote> notes;
 
                   ptBeat(int _staff, int _voice) : staff(_staff), voice(_voice) {}
-                  Type type() override {
+                  Type type() {
                         return Beat;
                         }
                   };
 
-            struct ptDirection final : public ptComponent {
+            struct ptDirection : public ptComponent {
                   enum Direction {
                         DIRECTION_CODA = 0,
                         DIRECTION_DOUBLE_CODA = 1,
@@ -209,7 +207,7 @@ class PowerTab {
 
                   ptDirection(int dir, int sym, int rep) : direction((Direction)dir),
                         activeSymbol((ActiveSym)sym), repeat(rep) {}
-                  Type type() override {
+                  Type type() {
                         return TDirection;
                         }
                   };

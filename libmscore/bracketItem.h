@@ -26,6 +26,7 @@ class BracketItem final : public ScoreElement {
       BracketType _bracketType { BracketType::NO_BRACKET };
       int _column              { 0     };
       int  _bracketSpan        { 0     };
+      bool _selected           { false };
       Staff* _staff            { 0     };
 
    public:

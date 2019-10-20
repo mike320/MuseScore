@@ -437,7 +437,8 @@ void UndoMacro::applySelectionInfo(const SelectionInfo& info, Selection& sel)
       }
 
 UndoMacro::UndoMacro(Score* s)
-   : undoInputState(s->inputState()), score(s)
+   : undoInputState(s->inputState()), redoInputState(s),
+   undoSelectedElement(selectedElement(s->selection())), score(s)
       {
       fillSelectionInfo(undoSelectionInfo, s->selection());
       }

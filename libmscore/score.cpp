@@ -244,7 +244,7 @@ void MeasureBaseList::change(MeasureBase* ob, MeasureBase* nb)
 //---------------------------------------------------------
 
 Score::Score()
-   : ScoreElement(this), _selection(this), _selectionFilter(this)
+   : ScoreElement(this), _is(this), _selection(this), _selectionFilter(this)
       {
       Score::validScores.insert(this);
       _masterScore = 0;
@@ -2935,9 +2935,7 @@ void Score::padToggle(Pad n, const EditData& ed)
             if (canAdjustLength) {
                   // Change length from last to first chord/rest
                   std::sort(crs.begin(), crs.end(), [](const ChordRest* cr1, const ChordRest* cr2) {
-                        if (cr2->track() == cr1->track())
-                              return cr2->isBefore(cr1);
-                        return cr2->track() < cr1->track();
+                        return cr2->track() < cr1->track() || cr2->isBefore(cr1);
                         });
                   // Remove duplicates from the list
                   crs.erase(std::unique(crs.begin(), crs.end()), crs.end());
@@ -4028,12 +4026,11 @@ QString Score::extractLyrics()
       for (int track = 0; track < ntracks(); track += VOICES) {
             bool found = false;
             size_t maxLyrics = 1;
-            const RepeatList& rlist = repeatList();
             for (Measure* m = firstMeasure(); m; m = m->nextMeasure()) {
                   m->setPlaybackCount(0);
                   }
             // follow the repeat segments
-            for (const RepeatSegment* rs : rlist) {
+            for (const RepeatSegment* rs : repeatList()) {
                   Fraction startTick  = Fraction::fromTicks(rs->tick);
                   Fraction endTick    = startTick + Fraction::fromTicks(rs->len());
                   for (Measure* m = tick2measure(startTick); m; m = m->nextMeasure()) {
