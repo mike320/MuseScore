@@ -355,7 +355,6 @@ add_executable ( ${ExecutableName}
       templateBrowser.h textcursor.h textpalette.h texttools.h timedialog.h timeline.h timesigproperties.h
       toolbarEditor.h toolbuttonmenu.h transposedialog.h tremolobarcanvas.h tremolobarprop.h
       tupletdialog.h updatechecker.h uploadscoredialog.h waveview.h webpage.h workspace.h
-      braillecellmanager.h
 
       recordbutton.h greendotbutton prefsdialog.h prefsdialog.cpp
       stringutils.h stringutils.cpp
@@ -451,7 +450,6 @@ add_executable ( ${ExecutableName}
       exportxml.cpp
       importxml.cpp
       importxmlfirstpass.cpp
-      exportbrf.cpp
       savePositions.cpp
       driver.cpp
       exportmidi.cpp
