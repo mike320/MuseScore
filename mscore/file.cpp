@@ -1976,7 +1976,7 @@ bool MuseScore::saveAs(Score* cs_, bool saveCopy, const QString& path, const QSt
             rv = savePdf(cs_, fn);
             }
       else if (ext == "brf") {
-            // save as brf file *.brf
+            // save as Braille file *.brf
             rv = saveBrf(cs_, fn);
             }
       else if (ext == "png") {
