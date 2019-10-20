@@ -24,7 +24,6 @@
 
 namespace Ms {
 
-struct PaletteTree;
 class XmlReader;
 class XmlWriter;
 
@@ -34,6 +33,9 @@ class XmlWriter;
 
 class Workspace : public QObject {
       Q_OBJECT
+
+      static const char* advancedWorkspaceTranslatableName;
+      static const char* basicWorkspaceTranslatableName;
 
       static QList<Workspace*> _workspaces;
       static QList<QPair<QAction*, QString>> actionToStringList;
@@ -51,7 +53,6 @@ class Workspace : public QObject {
 
       QString _name;
       QString _translatableName;
-      QString _sourceWorkspaceName;
       QString _path;
       bool _dirty;
       bool _readOnly;
@@ -63,9 +64,6 @@ class Workspace : public QObject {
       void readGlobalToolBar();
       void readGlobalMenuBar();
       void readGlobalGUIState();
-
-      static QString makeUserWorkspacePath(const QString& name);
-      static void readWorkspaceFile(const QString& path, std::function<void(XmlReader&)> readWorkspace);
 
    public slots:
       void setDirty(bool val = true) { _dirty = val;    }
@@ -97,10 +95,6 @@ class Workspace : public QObject {
       static Workspace* createNewWorkspace(const QString& name);
       static bool workspacesRead;
       static QList<Workspace*>& refreshWorkspaces();
-
-      const Workspace* sourceWorkspace() const;
-
-      std::unique_ptr<PaletteTree> getPaletteTree() const;
 
       static void addActionAndString(QAction* action, QString string);
       static void addRemainingFromMenuBar(QMenuBar* mb);

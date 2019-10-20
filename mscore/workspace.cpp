@@ -41,10 +41,8 @@ QList<Workspace*> Workspace::_workspaces {};
 QList<QPair<QAction*, QString>> Workspace::actionToStringList {};
 QList<QPair<QMenu*  , QString>> Workspace::menuToStringList   {};
 
-static const std::vector<QString> defaultWorkspaces {
-      QT_TRANSLATE_NOOP("Ms::Workspace", "Basic"),
-      QT_TRANSLATE_NOOP("Ms::Workspace", "Advanced"),
-      };
+const char* Workspace::advancedWorkspaceTranslatableName{ QT_TRANSLATE_NOOP("Ms::Workspace", "Advanced") };
+const char* Workspace::basicWorkspaceTranslatableName{ QT_TRANSLATE_NOOP("Ms::Workspace", "Basic") };
 
 //---------------------------------------------------------
 //   undoWorkspace
@@ -251,31 +249,19 @@ Workspace::Workspace()
       }
 
 //---------------------------------------------------------
-//   makeUserWorkspacePath
-///   Returns path for the workspace with the given \p name
-///   creating all the necessary directories.
-//---------------------------------------------------------
-
-QString Workspace::makeUserWorkspacePath(const QString& name)
-      {
-      const QString ext(".workspace");
-      QDir dir;
-      dir.mkpath(dataPath);
-      QString path(dataPath + "/workspaces");
-      dir.mkpath(path);
-      path += "/" + name + ext;
-      return path;
-      }
-
-//---------------------------------------------------------
 //   write
 //---------------------------------------------------------
 
 void Workspace::write()
       {
-      if (_path.isEmpty())
-            _path = Workspace::makeUserWorkspacePath(_name);
-
+      if (_path.isEmpty()) {
+            QString ext(".workspace");
+            QDir dir;
+            dir.mkpath(dataPath);
+            _path = dataPath + "/workspaces";
+            dir.mkpath(_path);
+            _path += "/" + _name + ext;
+            }
       MQZipWriter f(_path);
       f.setCreationPermissions(
          QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner
@@ -320,8 +306,6 @@ void Workspace::write()
       xml.stag("museScore version=\"" MSC_VERSION "\"");
       xml.stag("Workspace");
       // xml.tag("name", _name);
-      if (!_sourceWorkspaceName.isEmpty())
-            xml.tag("source", _sourceWorkspaceName);
       const PaletteWorkspace* w = mscore->getPaletteWorkspace();
       w->write(xml);
 
@@ -569,37 +553,6 @@ extern QString readRootFile(MQZipReader*, QList<QString>&);
 //   read
 //---------------------------------------------------------
 
-void Workspace::readWorkspaceFile(const QString& path, std::function<void(XmlReader&)> readWorkspace)
-      {
-      MQZipReader f(path);
-      QList<QString> images;
-      QString rootfile = readRootFile(&f, images);
-      //
-      // load images
-      //
-      for (const QString& s : images)
-            imageStore.add(s, f.fileData(s));
-
-      if (rootfile.isEmpty()) {
-            qDebug("can't find rootfile in: %s", qPrintable(path));
-            return;
-            }
-
-      QByteArray ba = f.fileData(rootfile);
-      XmlReader e(ba);
-
-      while (e.readNextStartElement()) {
-            if (e.name() == "museScore") {
-                  while (e.readNextStartElement()) {
-                        if (e.name() == "Workspace")
-                              readWorkspace(e);
-                        else
-                              e.unknown();
-                        }
-                  }
-            }
-      }
-
 void Workspace::read()
       {
       saveToolbars = saveMenuBar = saveComponents = false;
@@ -616,23 +569,35 @@ void Workspace::read()
       QFileInfo fi(_path);
       _readOnly = !fi.isWritable();
 
+      MQZipReader f(_path);
+      QList<QString> images;
+      QString rootfile = readRootFile(&f, images);
+      //
+      // load images
+      //
+      for (const QString& s : images)
+            imageStore.add(s, f.fileData(s));
+
+      if (rootfile.isEmpty()) {
+            qDebug("can't find rootfile in: %s", qPrintable(_path));
+            return;
+            }
+
+      QByteArray ba = f.fileData(rootfile);
+      XmlReader e(ba);
+
       preferences.updateLocalPreferences();
 
-      readWorkspaceFile(_path, [this](XmlReader& e) { read(e); });
-      }
-
-std::unique_ptr<PaletteTree> Workspace::getPaletteTree() const
-      {
-      std::unique_ptr<PaletteTree> paletteTree(new PaletteTree);
-      readWorkspaceFile(_path, [&](XmlReader& e) {
-            while (e.readNextStartElement()) {
-                  if (e.name() == "PaletteBox")
-                        paletteTree->read(e);
-                  else
-                        e.skipCurrentElement();
+      while (e.readNextStartElement()) {
+            if (e.name() == "museScore") {
+                  while (e.readNextStartElement()) {
+                        if (e.name() == "Workspace")
+                              read(e);
+                        else
+                              e.unknown();
+                        }
                   }
-            });
-      return std::move(paletteTree);
+            }
       }
 
 void Workspace::read(XmlReader& e)
@@ -644,8 +609,6 @@ void Workspace::read(XmlReader& e)
             const QStringRef& tag(e.name());
             if (tag == "name")
                   e.readElementText();
-            else if (tag == "source")
-                  _sourceWorkspaceName = e.readElementText();
             else if (tag == "PaletteBox") {
                   PaletteWorkspace* w = mscore->getPaletteWorkspace();
                   w->read(e);
@@ -797,9 +760,6 @@ void Workspace::read(XmlReader& e)
             readGlobalMenuBar();
       if (!saveComponents)
             readGlobalGUIState();
-
-      if (const Workspace* src = sourceWorkspace())
-            mscore->getPaletteWorkspace()->setDefaultPaletteTree(src->getPaletteTree());
       }
 
 //---------------------------------------------------------
@@ -981,6 +941,10 @@ void Workspace::readGlobalGUIState()
 
 void Workspace::save()
       {
+      QFile workspace(_path);
+      if (!workspace.exists())
+            return;
+      
       if (!saveComponents)
             writeGlobalGUIState();
       if (!saveToolbars)
@@ -998,33 +962,6 @@ void Workspace::save()
       write();
       }
 
-static QStringList findWorkspaceFiles()
-      {
-      QStringList path;
-      path << mscoreGlobalShare + "workspaces";
-      path << dataPath + "/workspaces";
-
-      QStringList extensionsDir = Extension::getDirectoriesByType(Extension::workspacesDir);
-      path.append(extensionsDir);
-
-      QStringList nameFilters;
-      nameFilters << "*.workspace";
-
-      QStringList workspaces;
-
-      for (const QString& s : path) {
-            QDir dir(s);
-            QStringList pl = dir.entryList(nameFilters, QDir::Files, QDir::Name);
-
-            for (const QString& entry : pl) {
-                  const QString workspacePath(s + "/" + entry);
-                  workspaces << workspacePath;
-                  }
-            }
-
-      return workspaces;
-      }
-
 //---------------------------------------------------------
 //   workspaces
 //---------------------------------------------------------
@@ -1032,52 +969,60 @@ static QStringList findWorkspaceFiles()
 QList<Workspace*>& Workspace::workspaces()
       {
       if (!workspacesRead) {
-            QList<Workspace*> oldWorkspaces(_workspaces);
+            // Remove all workspaces but Basic and Advanced
+            QMutableListIterator<Workspace*> it(_workspaces);
+            int index = 0;
+            while (it.hasNext()) {
+                  Workspace* w = it.next();
+                  if (index >= 2) {
+                        delete w;
+                        it.remove();
+                        }
+                  index++;
+                  }
             
-            for (const QString& path : findWorkspaceFiles()) {
-                  Workspace* p = 0;
-                  QFileInfo fi(path);
-                  QString name(fi.completeBaseName());
+            QStringList path;
+            path << mscoreGlobalShare + "workspaces";
+            path << dataPath + "/workspaces";
 
-                  const bool translate = std::find(defaultWorkspaces.begin(), defaultWorkspaces.end(), name) != defaultWorkspaces.end();
+            QStringList extensionsDir = Extension::getDirectoriesByType(Extension::workspacesDir);
+            path.append(extensionsDir);
 
-                  for (Workspace* w : _workspaces) {
-                        if (w->name() == name || (translate && w->translatableName() == name)) {
-                              p = w;
-                              break;
+            QStringList nameFilters;
+            nameFilters << "*.workspace";
+
+            for (const QString& s : path) {
+                  QDir dir(s);
+                  bool translate = (s == (mscoreGlobalShare + "workspaces"));
+                  QStringList pl = dir.entryList(nameFilters, QDir::Files, QDir::Name);
+                  foreach (const QString& entry, pl) {
+                        Workspace* p = 0;
+                        QFileInfo fi(s + "/" + entry);
+                        QString name(fi.completeBaseName());
+                        
+                        for (Workspace* w : _workspaces) {
+                              if (w->name() == name) {
+                                    p = w;
+                                    break;
+                                    }
+                              }
+                        
+                        if (!p) {
+                              p = new Workspace;
+                              p->setPath(s + "/" + entry);
+                              p->setName(name);
+                              
+                              if (translate)
+                                    p->setTranslatableName(name);
+                              
+                              p->setReadOnly(!fi.isWritable());
+                              _workspaces.append(p);
                               }
                         }
-
-                  if (p)
-                        oldWorkspaces.removeOne(p);
-                  else {
-                        p = new Workspace;
-                        _workspaces.append(p);
-                        }
-
-                  p->setPath(path);
-                  p->setName(name);
-
-                  if (translate)
-                        p->setTranslatableName(name);
-
-                  p->setReadOnly(!fi.isWritable());
                   }
-
-            for (Workspace* old : oldWorkspaces)
-                  _workspaces.removeOne(old);
-
-            if (_workspaces.empty())
-                  qFatal("No workspaces found");
-
-            if (oldWorkspaces.contains(Workspace::currentWorkspace))
-                  Workspace::currentWorkspace = _workspaces.first();
-
-            qDeleteAll(oldWorkspaces);
-
             // hack
             for (int i = 0; i < _workspaces.size(); i++) {
-                  if (_workspaces[i]->translatableName() == defaultWorkspaces[0]) {
+                  if (_workspaces[i]->translatableName() == basicWorkspaceTranslatableName) {
                         _workspaces.move(i, 0);
                         break;
                         }
@@ -1097,21 +1042,6 @@ QList<Workspace*>& Workspace::refreshWorkspaces()
       {
       workspacesRead = false;
       return workspaces();
-      }
-
-const Workspace* Workspace::sourceWorkspace() const
-      {
-      const QString sourceName = _sourceWorkspaceName.isEmpty() ? defaultWorkspaces[0] : _sourceWorkspaceName;
-
-      if (translatableName() == sourceName || name() == sourceName)
-            return this;
-
-      for (const Workspace* w : workspaces()) {
-            if (w->translatableName() == sourceName || w->name() == sourceName)
-                  return w;
-            }
-
-      return workspaces()[0];
       }
 
 //---------------------------------------------------------
@@ -1261,14 +1191,10 @@ QString Workspace::findStringFromMenu(QMenu* menu)
 
 void Workspace::rename(const QString& s)
       {
-      const QString newPath = Workspace::makeUserWorkspacePath(s);
-
-      QFile file(_path);
-      if (file.exists())
-            file.rename(newPath);
-
+      QFile file (_path);
+      file.remove();
       setName(s);
-      _path = newPath;
+      _path = "";
       save();
       }
 }

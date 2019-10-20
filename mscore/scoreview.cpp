@@ -4048,8 +4048,6 @@ void ScoreView::cmdAddText(Tid tid, Tid customTid)
 
       TextBase* s = 0;
       _score->startCmd();
-      if (tid == Tid::STAFF && customTid == Tid::EXPRESSION)
-            tid = customTid;  // expression is not first class element, but treat as such
       switch (tid) {
             case Tid::TITLE:
             case Tid::SUBTITLE:
