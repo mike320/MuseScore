@@ -105,7 +105,6 @@ class PaletteTreeModel : public QAbstractItemModel {
    private:
       std::unique_ptr<PaletteTree> _paletteTree;
       bool _treeChanged = false;
-      bool _treeChangedSignalBlocked = false;
 
       std::vector<std::unique_ptr<PalettePanel>>& palettes() { return _paletteTree->palettes; }
       const std::vector<std::unique_ptr<PalettePanel>>& palettes() const { return _paletteTree->palettes; }
@@ -118,18 +117,13 @@ class PaletteTreeModel : public QAbstractItemModel {
       
    public slots:
       void itemDataChanged(const QModelIndex& idx);
-      void setTreeChanged();
+      void setTreeChanged() { _treeChanged = true; }
       void setTreeUnchanged() { _treeChanged = false; }
-
-   signals:
-      void treeChanged();
 
    public:
       explicit PaletteTreeModel(std::unique_ptr<PaletteTree> tree, QObject* parent = nullptr);
       explicit PaletteTreeModel(PaletteTree* tree, QObject* parent = nullptr)
          : PaletteTreeModel(std::unique_ptr<PaletteTree>(tree), parent) {}
-
-      bool blockTreeChanged(bool block);
 
       void setPaletteTree(std::unique_ptr<PaletteTree> tree);
       const PaletteTree* paletteTree() const { return _paletteTree.get(); }

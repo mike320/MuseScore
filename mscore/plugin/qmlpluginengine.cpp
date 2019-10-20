@@ -26,9 +26,7 @@
 
 namespace Ms {
 
-#ifndef TESTROOT
 static constexpr int maxCmdCount = 10; // recursion prevention
-#endif
 
 //---------------------------------------------------------
 //   QmlPluginEngine

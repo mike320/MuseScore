@@ -42,6 +42,7 @@ class Box : public MeasureBase {
       qreal _topMargin              { 0.0   };
       qreal _bottomMargin           { 0.0   };
       bool editMode                 { false };
+      qreal dragX;                        // used during drag of hbox
 
    public:
       Box(Score*);

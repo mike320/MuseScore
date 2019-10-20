@@ -4222,7 +4222,7 @@ void MuseScore::changeState(ScoreState val)
                   a->setEnabled(cs && (cs->selection().state() != SelState::NONE || val == STATE_FOTO));
             else if (enable && (s->key() == "select-similar-range"))
                   a->setEnabled(cs && cs->selection().state() == SelState::RANGE);
-            else if (enable && (s->key() == "synth-control" || s->key() == "toggle-mixer")) {
+            else if (enable && (s->key() == "synth-control")) {
                   Driver* driver = seq ? seq->driver() : 0;
                   // a->setEnabled(driver && driver->getSynth());
                   if (MScore::debugMode)
@@ -5448,9 +5448,6 @@ PaletteWorkspace* MuseScore::getPaletteWorkspace()
             paletteWorkspace = new PaletteWorkspace(emptyModel, masterPaletteModel, /* parent */ this);
             emptyModel->setParent(paletteWorkspace);
             masterPaletteModel->setParent(paletteWorkspace);
-
-            if (Workspace::currentWorkspace)
-                  connect(paletteWorkspace, &PaletteWorkspace::userPaletteChanged, Workspace::currentWorkspace, QOverload<>::of(&Workspace::setDirty), Qt::UniqueConnection);
             }
 
       return paletteWorkspace;

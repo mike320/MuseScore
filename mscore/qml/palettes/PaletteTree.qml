@@ -96,7 +96,7 @@ ListView {
     }
 
     function removeSelectedItems(parentIndex) {
-        Utils.removeSelectedItems(paletteController, paletteSelectionModel, parentIndex);
+        Utils.removeSelectedItems(paletteModel, paletteController, paletteSelectionModel, parentIndex);
     }
 
     Keys.onDeletePressed: {
