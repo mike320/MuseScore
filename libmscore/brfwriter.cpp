@@ -385,58 +385,7 @@ void BrfWriter::dump(int len, const unsigned char* p)
       setFieldWidth(0);
       setIntegerBase(10);
       }
-/*
- * will not initially implement writeBrf
-//---------------------------------------------------------
-//   writeXml
-//    string s is already escaped (& -> "&amp;")
-//---------------------------------------------------------
 
-void XmlWriter::writeXml(const QString& name, QString s)
-      {
-      QString ename(name.split(' ')[0]);
-      putLevel();
-      for (int i = 0; i < s.size(); ++i) {
-            ushort c = s.at(i).unicode();
-            if (c < 0x20 && c != 0x09 && c != 0x0A && c != 0x0D)
-                  s[i] = '?';
-            }
-      *this << "<" << name << ">";
-      *this << s;
-      *this << "</" << ename << ">\n";
-      }
+} //namespace Ms
 
-//---------------------------------------------------------
-//   assignLocalIndex
-//---------------------------------------------------------
-
-int XmlWriter::assignLocalIndex(const Location& mainElementLocation)
-      {
-      return _linksIndexer.assignLocalIndex(mainElementLocation);
-      }
-
-//---------------------------------------------------------
-//   canWrite
-//---------------------------------------------------------
-
-bool XmlWriter::canWrite(const Element* e) const
-      {
-      if (!_clipboardmode)
-            return true;
-      return _filter.canSelect(e);
-      }
-
-//---------------------------------------------------------
-//   canWriteVoice
-//---------------------------------------------------------
-
-bool XmlWriter::canWriteVoice(int track) const
-      {
-      if (!_clipboardmode)
-            return true;
-      return _filter.canSelectVoice(track);
-      }
-
-}
-*/ // XML writer
 
