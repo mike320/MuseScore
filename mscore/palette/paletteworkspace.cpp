@@ -463,7 +463,7 @@ void UserPaletteController::applyPaletteElement(const QModelIndex& index, Qt::Ke
 //---------------------------------------------------------
 
 PaletteWorkspace::PaletteWorkspace(PaletteTreeModel* user, PaletteTreeModel* master, QObject* parent)
-   : QObject(parent), userPalette(user), masterPalette(master), defaultPalette(nullptr)
+   : QObject(parent), userPalette(user), masterPalette(master), defaultPalette(master)
       {}
 
 //---------------------------------------------------------
@@ -712,19 +712,7 @@ bool PaletteWorkspace::resetPalette(const QModelIndex& index)
             return false;
 
       Q_ASSERT(defaultPalette != userPalette);
-
-      QAbstractItemModel* resetModel = nullptr;
-      QModelIndex resetIndex;
-
-      if (defaultPalette) {
-            resetModel = defaultPalette;
-            resetIndex = convertIndex(index, defaultPalette);
-            }
-
-      if (!resetIndex.isValid()) {
-            resetModel = masterPalette;
-            resetIndex = convertIndex(index, masterPalette);
-            }
+      const QModelIndex defaultPaletteIndex = convertIndex(index, defaultPalette);
 
       const QModelIndex userPaletteIndex = convertProxyIndex(index, userPalette);
       const QModelIndex parent = userPaletteIndex.parent();
@@ -738,8 +726,8 @@ bool PaletteWorkspace::resetPalette(const QModelIndex& index)
       if (!userPalette->removeRow(row, parent))
             return false;
 
-      if (resetIndex.isValid()) {
-            QMimeData* data = resetModel->mimeData({ resetIndex });
+      if (defaultPaletteIndex.isValid()) {
+            QMimeData* data = defaultPalette->mimeData({ defaultPaletteIndex });
             userPalette->dropMimeData(data, Qt::CopyAction, row, column, parent);
             data->deleteLater();
             }
@@ -804,14 +792,6 @@ void PaletteWorkspace::setUserPaletteTree(std::unique_ptr<PaletteTree> tree)
             userPalette->setPaletteTree(std::move(tree));
       else
             userPalette = new PaletteTreeModel(std::move(tree), /* parent */ this);
-      }
-
-void PaletteWorkspace::setDefaultPaletteTree(std::unique_ptr<PaletteTree> tree)
-      {
-      if (defaultPalette)
-            defaultPalette->setPaletteTree(std::move(tree));
-      else
-            defaultPalette = new PaletteTreeModel(std::move(tree), /* parent */ this);
       }
 
 //---------------------------------------------------------

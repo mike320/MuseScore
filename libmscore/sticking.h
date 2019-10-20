@@ -31,7 +31,6 @@ namespace Ms {
 
 class Sticking final : public TextBase {
       virtual Sid getPropertyStyle(Pid) const override;
-      virtual QVariant propertyDefault(Pid id) const override;
 
    public:
       Sticking(Score*);

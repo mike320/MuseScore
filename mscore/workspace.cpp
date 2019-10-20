@@ -382,8 +382,6 @@ void Workspace::write()
       xml.stag("museScore version=\"" MSC_VERSION "\"");
       xml.stag("Workspace");
       // xml.tag("name", _name);
-      if (!_sourceWorkspaceName.isEmpty())
-            xml.tag("source", _sourceWorkspaceName);
       const PaletteWorkspace* w = mscore->getPaletteWorkspace();
       w->write(xml);
 
@@ -633,7 +631,21 @@ extern QString readRootFile(MQZipReader*, QList<QString>&);
 
 void WorkspacesManager::readWorkspaceFile(const QString& path, std::function<void(XmlReader&)> readWorkspace)
       {
-      MQZipReader f(path);
+      saveToolbars = saveMenuBar = saveComponents = false;
+      preferences.setUseLocalPreferences(false);
+      if (_path.isEmpty() || !QFile(_path).exists()) {
+            qDebug("cannot read workspace <%s>", qPrintable(_path));
+            mscore->setDefaultPalette();
+            readGlobalMenuBar();
+            readGlobalToolBar();
+            readGlobalGUIState();
+            preferences.updateLocalPreferences();
+            return;
+            }
+      QFileInfo fi(_path);
+      _readOnly = !fi.isWritable();
+
+      MQZipReader f(_path);
       QList<QString> images;
       QString rootfile = readRootFile(&f, images);
       //
@@ -643,18 +655,20 @@ void WorkspacesManager::readWorkspaceFile(const QString& path, std::function<voi
             imageStore.add(s, f.fileData(s));
 
       if (rootfile.isEmpty()) {
-            qDebug("can't find rootfile in: %s", qPrintable(path));
+            qDebug("can't find rootfile in: %s", qPrintable(_path));
             return;
             }
 
       QByteArray ba = f.fileData(rootfile);
       XmlReader e(ba);
 
+      preferences.updateLocalPreferences();
+
       while (e.readNextStartElement()) {
             if (e.name() == "museScore") {
                   while (e.readNextStartElement()) {
                         if (e.name() == "Workspace")
-                              readWorkspace(e);
+                              read(e);
                         else
                               e.unknown();
                         }
@@ -720,8 +734,6 @@ void Workspace::read(XmlReader& e)
             const QStringRef& tag(e.name());
             if (tag == "name")
                   e.readElementText();
-            else if (tag == "source")
-                  _sourceWorkspaceName = e.readElementText();
             else if (tag == "PaletteBox") {
                   PaletteWorkspace* w = mscore->getPaletteWorkspace();
                   w->read(e);
@@ -873,9 +885,6 @@ void Workspace::read(XmlReader& e)
             readGlobalMenuBar();
       if (!saveComponents)
             readGlobalGUIState();
-
-      if (const Workspace* src = sourceWorkspace())
-            mscore->getPaletteWorkspace()->setDefaultPaletteTree(src->getPaletteTree());
       }
 
 //---------------------------------------------------------
@@ -1102,6 +1111,10 @@ void Workspace::setDirty(bool val)
 
 void Workspace::save()
       {
+      QFile workspace(_path);
+      if (!workspace.exists())
+            return;
+      
       if (!saveComponents)
             writeGlobalGUIState();
       if (!saveToolbars)
@@ -1412,7 +1425,7 @@ void Workspace::rename(const QString& s)
             file.rename(newPath);
 
       setName(s);
-      _path = newPath;
+      _path = "";
       save();
       }
 }

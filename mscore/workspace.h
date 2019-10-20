@@ -24,7 +24,6 @@
 
 namespace Ms {
 
-struct PaletteTree;
 class XmlReader;
 class XmlWriter;
 
@@ -49,7 +48,6 @@ class Workspace : public QObject {
 
       QString _name;
       QString _translatableName;
-      QString _sourceWorkspaceName;
       QString _path;
       bool _dirty;
       bool _readOnly;
