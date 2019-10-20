@@ -56,7 +56,6 @@ add_library (
       stemslash.h stringdata.h style.h sym.h symbol.h synthesizerstate.h system.h systemdivider.h systemtext.h tempo.h
       tempotext.h text.h measurenumber.h textbase.h textedit.h textframe.h textline.h textlinebase.h tie.h tiemap.h timesig.h
       tremolo.h tremolobar.h trill.h tuplet.h tupletmap.h types.h undo.h utils.h velo.h vibrato.h volta.h xml.h
-      brf.h
 
       segmentlist.cpp fingering.cpp accidental.cpp arpeggio.cpp
       fermata.cpp articulation.cpp barline.cpp beam.cpp bend.cpp box.cpp
@@ -79,7 +78,6 @@ add_library (
       textframe.cpp textline.cpp textlinebase.cpp timesig.cpp
       tremolobar.cpp tremolo.cpp trill.cpp tuplet.cpp
       utils.cpp velo.cpp volta.cpp xmlreader.cpp xmlwriter.cpp mscore.cpp
-      brfwriter.cpp
       undo.cpp cmd.cpp scorefile.cpp revisions.cpp
       check.cpp input.cpp icon.cpp ossia.cpp
       tempo.cpp sig.cpp pos.cpp duration.cpp
