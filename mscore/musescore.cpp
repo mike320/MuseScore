@@ -24,7 +24,6 @@
 #include "prefsdialog.h"
 #include "icons.h"
 #include "libmscore/xml.h"
-#include "libmscore/brf.h"
 #include "seq.h"
 #include "libmscore/tempo.h"
 #include "libmscore/sym.h"
@@ -3591,9 +3590,7 @@ static bool doConvert(Score *cs, const QString& fn)
       else if (fn.endsWith(".xml") || fn.endsWith(".musicxml"))
             return saveXml(cs, fn);
       else if (fn.endsWith(".mxl"))
-          return saveXml(cs, fn);
-      else if (fn.endsWith(".brf"))
-            return saveBrf(cs, fn);
+            return saveMxl(cs, fn);
       else if (fn.endsWith(".mid"))
             return mscore->saveMidi(cs, fn);
       else if (fn.endsWith(".pdf")) {
