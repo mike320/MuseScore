@@ -522,15 +522,9 @@ void MuseScore::preferencesChanged(bool fromWorkspace)
       playId->setEnabled(!noSeq && seq && seq->isRunning());
 
       // change workspace
-      if (!fromWorkspace && preferences.getString(PREF_APP_WORKSPACE) != Workspace::currentWorkspace->name()) {
-            Workspace* workspace = 0;
-            for (Workspace* w: Workspace::workspaces()) {
-                  if (w->name() == preferences.getString(PREF_APP_WORKSPACE)) {
-                        workspace = w;
-                        break;
-                        }
-                  }
-
+      if (!fromWorkspace && preferences.getString(PREF_APP_WORKSPACE) != WorkspacesManager::currentWorkspace()->name()) {
+            Workspace* workspace = WorkspacesManager::findByName(preferences.getString(PREF_APP_WORKSPACE));
+            
             if (workspace)
                   mscore->changeWorkspace(workspace);
             }
@@ -602,6 +596,16 @@ void MuseScore::populateNoteInputMenu()
       }
 
 //---------------------------------------------------------
+//   notifyElementDraggedToScoreView
+//---------------------------------------------------------
+
+void MuseScore::notifyElementDraggedToScoreView()
+      {
+      if (paletteWidget)
+            paletteWidget->notifyElementDraggedToScoreView();
+      }
+
+//---------------------------------------------------------
 //   onLongOperationFinished
 //---------------------------------------------------------
 
@@ -623,12 +627,14 @@ bool MuseScore::importExtension(QString path)
             totalZipSize += fi.size;
 
       // check if extension path is writable and has enough space
-      QStorageInfo storage = QStorageInfo(preferences.getString(PREF_APP_PATHS_MYEXTENSIONS));
-      if (storage.isReadOnly()) {
+      const QString extensionsPath = preferences.getString(PREF_APP_PATHS_MYEXTENSIONS);
+      const QFileInfo extensionsDirInfo(extensionsPath);
+      if (!extensionsDirInfo.isWritable()) {
             if (!MScore::noGui)
-                  QMessageBox::critical(mscore, QWidget::tr("Import Extension File"), QWidget::tr("Cannot import extension on read-only storage: %1").arg(storage.displayName()));
+                  QMessageBox::critical(mscore, QWidget::tr("Import Extension File"), QWidget::tr("Cannot import extension on read-only storage: %1").arg(extensionsPath)); // TODO: on read-only *directory*
             return false;
             }
+      QStorageInfo storage = QStorageInfo(extensionsPath);
       if (totalZipSize >= storage.bytesAvailable()) {
             if (!MScore::noGui)
                   QMessageBox::critical(mscore, QWidget::tr("Import Extension File"), QWidget::tr("Cannot import extension: storage %1 is full").arg(storage.displayName()));
@@ -821,9 +827,9 @@ bool MuseScore::importExtension(QString path)
       if (workspacesDir.exists() && !MScore::noGui) {
             auto wsList = workspacesDir.entryInfoList(QStringList("*.workspace"), QDir::Files);
             if (!wsList.isEmpty()) {
-                  Workspace::refreshWorkspaces();
+                  WorkspacesManager::refreshWorkspaces();
                   emit workspacesChanged();
-                  changeWorkspace(Workspace::workspaces().last());
+                  changeWorkspace(WorkspacesManager::workspaces().last());
                   }
             }
       return true;
@@ -887,21 +893,18 @@ bool MuseScore::uninstallExtension(QString extensionId)
       mscore->reloadInstrumentTemplates();
       mscore->updateInstrumentDialog();
       if (refreshWorkspaces) {
-            const auto& curWorkspaceName = Workspace::currentWorkspace->name();
-            Workspace::refreshWorkspaces();
+            const auto curWorkspaceName = WorkspacesManager::currentWorkspace()->name();
+            WorkspacesManager::refreshWorkspaces();
             emit workspacesChanged();
-            auto ws = Workspace::workspaces();
+            auto ws = WorkspacesManager::workspaces();
             //If current worksapce is alive, do nothing
             //Select first available workspace in the list otherwise
-            bool curWorkspaceDisappeared = true;
-            for (auto workspace : ws) {
-                  if (workspace->name() == curWorkspaceName) {
-                        curWorkspaceDisappeared = false;
-                        break;
-                        }
-                  }
+            bool curWorkspaceDisappeared = false;
+            if (WorkspacesManager::findByName(curWorkspaceName))
+                  curWorkspaceDisappeared = true;
+            
             if (curWorkspaceDisappeared)
-                  changeWorkspace(Workspace::workspaces().last());
+                  changeWorkspace(WorkspacesManager::workspaces().last());
             }
       return true;
       }
@@ -1964,6 +1967,8 @@ MuseScore::MuseScore()
 
       if (!converterMode && !pluginMode)
             _loginManager = new LoginManager(getAction(saveOnlineMenuItem), this);
+
+      connect(qApp, &QGuiApplication::focusWindowChanged, this, &MuseScore::onFocusWindowChanged);
       }
 
 MuseScore::~MuseScore()
@@ -1978,6 +1983,31 @@ MuseScore::~MuseScore()
       // be deleted before paletteWorkspace.
       delete paletteWidget;
       paletteWidget = nullptr;
+      }
+
+//---------------------------------------------------------
+//   onFocusWindowChanged
+//---------------------------------------------------------
+
+void MuseScore::onFocusWindowChanged(QWindow* w)
+      {
+      const QWindow* mscoreWindow = windowHandle();
+
+      if (!QApplication::focusWidget() && _lastFocusWindow
+         && ((!w && _lastFocusWindow != mscoreWindow) || (w == mscoreWindow && _lastFocusWindowIsQQuickView))) {
+            // Switch to temporary window to work around inability to return focus to QML-based windows
+            QWidget* tmpContainer = createWindowContainer(new QWindow, this);
+            tmpContainer->show();
+            tmpContainer->setFocus();
+
+            QTimer::singleShot(0, [this, tmpContainer]() {
+                  focusScoreView();
+                  tmpContainer->deleteLater();
+                  });
+            }
+
+      _lastFocusWindow = w;
+      _lastFocusWindowIsQQuickView = qobject_cast<QQuickView*>(_lastFocusWindow);
       }
 
 //---------------------------------------------------------
@@ -2029,7 +2059,7 @@ void MuseScore::retranslate()
       showMidiImportButton->setText(tr("Show MIDI import panel"));
 
       Shortcut::retranslate();
-      Workspace::retranslate();
+      WorkspacesManager::retranslateAll();
 
       if (paletteWorkspace)
           paletteWorkspace->retranslate();
@@ -2935,7 +2965,6 @@ void MuseScore::showPlayPanel(bool visible)
             if (!visible)
                   return;
             playPanel = new PlayPanel(this);
-            connect(playPanel, SIGNAL(gainChange(float)),     synti, SLOT(setGain(float)));
             connect(playPanel, SIGNAL(metronomeGainChanged(float)), seq, SLOT(setMetronomeGain(float)));
             connect(playPanel, SIGNAL(relTempoChanged(double)),seq, SLOT(setRelTempo(double)));
             connect(playPanel, SIGNAL(posChange(int)),         seq, SLOT(seek(int)));
@@ -4462,7 +4491,7 @@ void MuseScore::writeSettings()
       settings.setValue("splitter", splitter->saveState());
       settings.endGroup();
 
-      Workspace::currentWorkspace->save();
+      WorkspacesManager::currentWorkspace()->save();
       if (keyEditor && keyEditor->dirty())
             keyEditor->save();
       if (chordStyleEditor)
@@ -4907,8 +4936,6 @@ void MuseScore::undoRedo(bool undo)
       cv->startUndoRedo(undo);
       updateInputState(cs);
       endCmd();
-      if (_inspector)
-            _inspector->update();
       if (pianorollEditor)
             pianorollEditor->update();
       }
@@ -5445,9 +5472,21 @@ PaletteWorkspace* MuseScore::getPaletteWorkspace()
             paletteWorkspace = new PaletteWorkspace(emptyModel, masterPaletteModel, /* parent */ this);
             emptyModel->setParent(paletteWorkspace);
             masterPaletteModel->setParent(paletteWorkspace);
+
+            if (WorkspacesManager::currentWorkspace())
+                  connect(paletteWorkspace, &PaletteWorkspace::userPaletteChanged, WorkspacesManager::currentWorkspace(), QOverload<>::of(&Workspace::setDirty), Qt::UniqueConnection);
             }
 
       return paletteWorkspace;
+      }
+
+//---------------------------------------------------------
+//   qmlDockWidgets
+//---------------------------------------------------------
+
+std::vector<QmlDockWidget*> MuseScore::qmlDockWidgets()
+      {
+      return { paletteWidget };
       }
 
 //---------------------------------------------------------
@@ -5933,6 +5972,10 @@ void MuseScore::endCmd()
                   SelState ss = cs->selection().state();
                   selectionChanged(ss);
                   }
+
+            if (cv)
+                  cv->moveViewportToLastEdit();
+
             getAction("concert-pitch")->setChecked(cs->styleB(Sid::concertPitch));
 
             if (e == 0 && cs->noteEntryMode())
@@ -6862,9 +6905,15 @@ bool MuseScore::saveMp3(Score* score, QIODevice* device, bool& wasCanceled)
       return false;
 #else
       EventMap events;
-      score->renderMidi(&events, synthesizerState());
-      if(events.size() == 0)
-            return false;
+      // In non-GUI mode current synthesizer settings won't
+      // allow single note dynamics. See issue #289947.
+      const bool useCurrentSynthesizerState = !MScore::noGui;
+
+      if (useCurrentSynthesizerState) {
+            score->renderMidi(&events, synthesizerState());
+            if (events.empty())
+                  return false;
+            }
 
       MP3Exporter exporter;
       if (!exporter.loadLibrary(MP3Exporter::AskUser::MAYBE)) {
@@ -6935,6 +6984,16 @@ bool MuseScore::saveMp3(Score* score, QIODevice* device, bool& wasCanceled)
             }
 
       MScore::sampleRate = sampleRate;
+
+      if (!useCurrentSynthesizerState) {
+            score->masterScore()->rebuildAndUpdateExpressive(synth->synthesizer("Fluid"));
+            score->renderMidi(&events, score->synthesizerState());
+            if (synti)
+                  score->masterScore()->rebuildAndUpdateExpressive(synti->synthesizer("Fluid"));
+
+            if (events.empty())
+                  return false;
+            }
 
       QProgressDialog progress(this);
       progress.setWindowFlags(Qt::WindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::WindowTitleHint));
@@ -7658,7 +7717,7 @@ int main(int argc, char* av[])
 #ifndef Q_OS_MAC
             qApp->setWindowIcon(*icons[int(Icons::window_ICON)]);
 #endif
-            Workspace::initWorkspace();
+            WorkspacesManager::initCurrentWorkspace();
             }
 
       mscore = new MuseScore();
@@ -7687,10 +7746,10 @@ int main(int argc, char* av[])
                   setMscoreLocale(sw->language());
                   Workspace::writeGlobalToolBar();
                   Workspace::writeGlobalGUIState();
-                  for (auto ws : Workspace::workspaces()) {
-                        if (ws->name().compare(sw->workspace()) == 0)
-                              mscore->changeWorkspace(ws, true);
-                        }
+                  Workspace* targetWorkspace = WorkspacesManager::visibleWorkspaces()[0];
+                  if (targetWorkspace)
+                        mscore->changeWorkspace(targetWorkspace, true);
+                  
                   preferences.setPreference(PREF_UI_APP_STARTUP_SHOWTOURS, sw->showTours());
                   delete sw;
 
@@ -7783,6 +7842,8 @@ int main(int argc, char* av[])
       if (mscore->hasToCheckForExtensionsUpdate())
             mscore->checkForExtensionsUpdate();
 
+      if (QWidget* menubar = mscore->menuWidget())
+            TourHandler::addWidgetToTour("welcome", menubar, "menubar");
 
       if (!scoresOnCommandline && preferences.getBool(PREF_UI_APP_STARTUP_SHOWSTARTCENTER) && (!restoredSession || mscore->scores().size() == 0)) {
 #ifdef Q_OS_MAC

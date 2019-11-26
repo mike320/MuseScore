@@ -1034,7 +1034,7 @@ void Note::add(Element* e)
                   qDebug("Note::add() not impl. %s", e->name());
                   break;
             }
-      score()->setLayout(tick());
+      triggerLayout();
       }
 
 //---------------------------------------------------------
@@ -1077,7 +1077,7 @@ void Note::remove(Element* e)
                   qDebug("Note::remove() not impl. %s", e->name());
                   break;
             }
-      score()->setLayout(tick());
+      triggerLayout();
       }
 
 //---------------------------------------------------------
@@ -1152,14 +1152,14 @@ void Note::draw(QPainter* painter) const
                   return;
             // warn if pitch extends usable range of instrument
             // by coloring the notehead
-            if (chord() && chord()->segment() && staff() && !selected()
+            if (chord() && chord()->segment() && staff()
                && !score()->printing() && MScore::warnPitchRange && !staff()->isDrumStaff(chord()->tick())) {
                   const Instrument* in = part()->instrument(chord()->tick());
                   int i = ppitch();
                   if (i < in->minPitchP() || i > in->maxPitchP())
-                        painter->setPen(Qt::red);
+                        painter->setPen(selected() ? Qt::darkRed : Qt::red);
                   else if (i < in->minPitchA() || i > in->maxPitchA())
-                        painter->setPen(Qt::darkYellow);
+                        painter->setPen(selected() ? QColor("#565600") : Qt::darkYellow);
                   }
             // draw blank notehead to avoid staff and ledger lines
             if (_cachedSymNull != SymId::noSym) {
@@ -1629,6 +1629,7 @@ bool Note::acceptDrop(EditData& data) const
          || (type == ElementType::HAIRPIN)
          || (type == ElementType::STAFF_TEXT)
          || (type == ElementType::SYSTEM_TEXT)
+         || (type == ElementType::STICKING)
          || (type == ElementType::TEMPO_TEXT)
          || (type == ElementType::BEND)
          || (type == ElementType::TREMOLOBAR)
@@ -1671,7 +1672,7 @@ Element* Note::drop(EditData& data)
                   return 0;
 
             case ElementType::SLUR:
-                  data.view->cmdAddSlur(chord(), nullptr);
+                  data.view->cmdAddSlur(chord(), nullptr, toSlur(e));
                   delete e;
                   return 0;
 
@@ -2565,7 +2566,7 @@ bool Note::setProperty(Pid propertyId, const QVariant& v)
                   break;
             case Pid::DOT_POSITION:
                   setUserDotPosition(v.value<Direction>());
-                  score()->setLayout(tick());
+                  triggerLayout();
                   return true;
             case Pid::HEAD_GROUP:
                   setHeadGroup(NoteHead::Group(v.toInt()));
@@ -3117,6 +3118,27 @@ std::vector<Note*> Note::tiedNotes() const
             notes.push_back(note);
             }
       return notes;
+      }
+
+//---------------------------------------------------------
+//   unisonIndex
+//---------------------------------------------------------
+
+int Note::unisonIndex() const
+      {
+      int index = 0;
+      auto notes = chord()->notes();
+      size_t ns = notes.size();
+      for (size_t i = 0; i < ns; ++i) {
+            Note* n = notes.at(i);
+            if (n->pitch() == pitch()) {
+                  if (n == this)
+                        return index;
+                  else
+                        ++index;
+                  }
+            }
+      return 0;
       }
 
 //---------------------------------------------------------

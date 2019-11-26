@@ -711,7 +711,7 @@ bool FiguredBassItem::setProperty(Pid propertyId, const QVariant& v)
             default:
                   return Element::setProperty(propertyId, v);
             }
-      score()->setLayoutAll();
+      triggerLayoutAll();
       return true;
       }
 
@@ -1080,7 +1080,7 @@ void FiguredBass::read(XmlReader& e)
       while (e.readNextStartElement()) {
             const QStringRef& tag(e.name());
             if (tag == "ticks")
-                  setTicks(Fraction::fromTicks(e.readInt()));
+                  setTicks(e.readFraction());
             else if (tag == "onNote")
                   setOnNote(e.readInt() != 0l);
             else if (tag == "FiguredBassItem") {

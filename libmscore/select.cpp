@@ -83,7 +83,7 @@ Fraction Selection::tickStart() const
       {
       switch (_state) {
             case SelState::RANGE:
-                  return _startSegment->tick();
+                  return _startSegment ? _startSegment->tick() : Fraction(-1,1);
             case SelState::LIST: {
                   ChordRest* cr = firstChordRest();
                   return (cr) ? cr->tick() : Fraction(-1,1);
@@ -681,8 +681,6 @@ void Selection::updateState()
             if (e->track() >= 0)
                   _currentTrack = e->track();
             }
-      if (!_score->noteEntryMode())
-             _score->inputState().update(e);
       }
 
 //---------------------------------------------------------

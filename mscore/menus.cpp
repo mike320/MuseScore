@@ -313,7 +313,7 @@ void MuseScore::showPalette(bool visible)
       {
       QAction* a = getAction("toggle-palette");
       if (!paletteWidget) {
-            Workspace::currentWorkspace->read();
+            WorkspacesManager::currentWorkspace()->read();
             preferencesChanged();
             updateIcons();
 
@@ -513,12 +513,12 @@ PalettePanel* MuseScore::newDynamicsPalettePanel(bool defaultPalettePanel)
             "pppppp", "ppppp", "pppp",
             "ppp", "pp", "p", "mp", "mf", "f", "ff", "fff",
             "ffff", "fffff", "ffffff",
-            "fp", "sf", "sfz", "sff", "sffz", "sfp", "sfpp",
+            "fp", "pf", "sf", "sfz", "sff", "sffz", "sfp", "sfpp",
             "rfz", "rf", "fz", "m", "r", "s", "z", "n"
             };
       static const std::vector<const char*> arrayDefault = {
             "ppp", "pp", "p", "mp", "mf", "f", "ff", "fff",
-            "fp", "sf", "sfz", "sff", "sffz", "sfp", "sfpp",
+            "fp", "pf", "sf", "sfz", "sff", "sffz", "sfp", "sfpp",
             "rfz", "rf", "fz", "m", "r", "s", "z", "n"
             };
 
@@ -1656,7 +1656,10 @@ PalettePanel* MuseScore::newTimePalettePanel()
             { 9,  8, TimeSigType::NORMAL, "9/8" },
             { 12, 8, TimeSigType::NORMAL, "12/8" },
             { 4,  4, TimeSigType::FOUR_FOUR,  QT_TRANSLATE_NOOP("Palette", "4/4 common time") },
-            { 2,  2, TimeSigType::ALLA_BREVE, QT_TRANSLATE_NOOP("Palette", "2/2 alla breve") }
+            { 2,  2, TimeSigType::ALLA_BREVE, QT_TRANSLATE_NOOP("Palette", "2/2 alla breve") },
+            { 2,  2, TimeSigType::NORMAL, "2/2" },
+            { 3,  2, TimeSigType::NORMAL, "3/2" },
+            { 4,  2, TimeSigType::NORMAL, "4/2" },
             };
 
       PalettePanel* sp = new PalettePanel(PalettePanel::Type::TimeSig);

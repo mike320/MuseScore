@@ -740,7 +740,7 @@ else (MINGW)
    if ( NOT MSVC )
 ## install qwebengine core
       if (NOT APPLE AND USE_WEBENGINE)
-         install(FILES
+         install(PROGRAMS
             ${QT_INSTALL_LIBEXECS}/QtWebEngineProcess
             DESTINATION bin
             )
@@ -1000,6 +1000,7 @@ else (MINGW)
             ${QT_INSTALL_BINS}/opengl32sw.dll
             ${QT_INSTALL_BINS}/Qt5Positioning.dll
             ${QT_INSTALL_BINS}/Qt5WebChannel.dll
+            ${QT_INSTALL_BINS}/Qt5QuickTemplates2.dll
             ${PROJECT_SOURCE_DIR}/build/qt.conf
             DESTINATION bin)
 

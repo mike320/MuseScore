@@ -1781,11 +1781,7 @@ System* Score::getNextSystem(LayoutContext& lc)
       _systems.append(system);
       if (!isVBox) {
             int nstaves = Score::nstaves();
-            for (int i = system->staves()->size(); i < nstaves; ++i)
-                  system->insertStaff(i);
-            int dn = system->staves()->size() - nstaves;
-            for (int i = 0; i < dn; ++i)
-                  system->removeStaff(system->staves()->size()-1);
+            system->adjustStavesNumber(nstaves);
             }
       return system;
       }
@@ -2032,6 +2028,7 @@ void Score::createMMRest(Measure* m, Measure* lm, const Fraction& len)
                         if (!nks) {
                               nks = ks->generated() ? ks->clone() : toKeySig(ks->linkedClone());
                               nks->setParent(ns);
+                              nks->setGenerated(true);
                               undo(new AddElement(nks));
                               }
                         else {
@@ -2253,7 +2250,7 @@ int LayoutContext::adjustMeasureNo(MeasureBase* m)
       m->setNo(measureNo);
       if (!m->irregular())          // don’t count measure
             ++measureNo;
-      if (m->sectionBreak())
+      if (m->sectionBreakElement() && m->sectionBreakElement()->startWithMeasureOne())
             measureNo = 0;
       return measureNo;
       }
@@ -2449,7 +2446,8 @@ void Score::createBeams(Measure* measure)
                   Fraction nextTick = a1->tick() + a1->actualTicks();
                   Measure* m = (nextTick >= measure->endTick() ? measure->nextMeasure() : measure);
                   ChordRest* nextCR = (m ? m->findChordRest(nextTick, track) : nullptr);
-                  if (!nextCR || !beamModeMid(nextCR->beamMode()))
+                  Beam* b = a1->beam();
+                  if (!(b && b->elements().startsWith(a1) && nextCR && beamModeMid(nextCR->beamMode())))
                         a1->removeDeleteBeam(false);
                   }
             }
@@ -4339,11 +4337,24 @@ void Score::doLayout()
       }
 
 //---------------------------------------------------------
+//   CmdStateLocker
+//---------------------------------------------------------
+
+class CmdStateLocker {
+      Score* score;
+   public:
+      CmdStateLocker(Score* s) : score(s) { score->cmdState().lock(); }
+      ~CmdStateLocker() { score->cmdState().unlock(); }
+      };
+
+//---------------------------------------------------------
 //   doLayoutRange
 //---------------------------------------------------------
 
 void Score::doLayoutRange(const Fraction& st, const Fraction& et)
       {
+      CmdStateLocker cmdStateLocker(this);
+
       Fraction stick(st);
       Fraction etick(et);
       Q_ASSERT(!(stick == Fraction(-1,1) && etick == Fraction(-1,1)));
@@ -4433,7 +4444,8 @@ void Score::doLayoutRange(const Fraction& st, const Fraction& et)
                   lc.tick      = Fraction(0,1);
                   }
             else {
-                  if (lc.nextMeasure->prevMeasure()->sectionBreak())
+                  LayoutBreak* sectionBreak = lc.nextMeasure->prevMeasure()->sectionBreakElement();
+                  if (sectionBreak && sectionBreak->startWithMeasureOne())
                         lc.measureNo = 0;
                   else
                         lc.measureNo = lc.nextMeasure->prevMeasure()->no() + 1; // will be adjusted later with respect

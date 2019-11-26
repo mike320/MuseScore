@@ -368,13 +368,23 @@ Rest* Score::setRest(const Fraction& _tick, int track, const Fraction& _l, bool 
 //   addNote from NoteVal
 //---------------------------------------------------------
 
-Note* Score::addNote(Chord* chord, NoteVal& noteVal)
+Note* Score::addNote(Chord* chord, NoteVal& noteVal, bool forceAccidental)
       {
       Note* note = new Note(this);
       note->setParent(chord);
       note->setTrack(chord->track());
       note->setNval(noteVal);
       undoAddElement(note);
+      if (forceAccidental) {
+            int tpc = styleB(Sid::concertPitch) ? noteVal.tpc2 : noteVal.tpc1;
+            AccidentalVal alter = tpc2alter(tpc);
+            AccidentalType at = Accidental::value2subtype(alter);
+            Accidental* a = new Accidental(this);
+            a->setAccidentalType(at);
+            a->setRole(AccidentalRole::USER);
+            a->setParent(note);
+            undoAddElement(a);
+            }
       setPlayNote(true);
       setPlayChord(true);
       select(note, SelectType::SINGLE, 0);
@@ -774,8 +784,8 @@ void Score::cmdAddTimeSig(Measure* fm, int staffIdx, TimeSig* ts, bool local)
             for (int si = 0; si < n; ++si) {
                   TimeSig* nsig = toTimeSig(seg->element(si * VOICES));
                   nsig->undoChangeProperty(Pid::SHOW_COURTESY, ts->showCourtesySig());
-                  nsig->undoChangeProperty(Pid::TIMESIG_TYPE, int(ts->timeSigType()));
                   nsig->undoChangeProperty(Pid::TIMESIG, QVariant::fromValue(ts->sig()));
+                  nsig->undoChangeProperty(Pid::TIMESIG_TYPE, int(ts->timeSigType()));
                   nsig->undoChangeProperty(Pid::NUMERATOR_STRING, ts->numeratorString());
                   nsig->undoChangeProperty(Pid::DENOMINATOR_STRING, ts->denominatorString());
                   nsig->undoChangeProperty(Pid::TIMESIG_STRETCH, QVariant::fromValue(ts->stretch()));
@@ -1045,7 +1055,7 @@ void Score::regroupNotesAndRests(const Fraction& startTick, const Fraction& endT
                               lastRest = cr;
                               }
                         Fraction restTicks = lastRest->tick() + lastRest->ticks() - curr->tick();
-                        seg = setNoteRest(seg, curr->track(), NoteVal(), restTicks, Direction::AUTO, true);
+                        seg = setNoteRest(seg, curr->track(), NoteVal(), restTicks, Direction::AUTO, false, true);
                         }
                   else if (curr->isChord()) {
                         // combine tied chords
@@ -1194,26 +1204,34 @@ void Score::regroupNotesAndRests(const Fraction& startTick, const Fraction& endT
       }
 
 //---------------------------------------------------------
+//   cmdTieNoteList
+//---------------------------------------------------------
+
+std::vector<Note*> Score::cmdTieNoteList(const Selection& selection, bool noteEntryMode)
+      {
+      Element* el = selection.element();
+      if (Note* n = InputState::note(el)) {
+            if (noteEntryMode)
+                  return n->chord()->notes();
+            else
+                  return { n };
+            }
+      else {
+            ChordRest* cr = InputState::chordRest(el);
+            if (cr && cr->isChord())
+                  return toChord(cr)->notes();
+            }
+      return selection.noteList();
+      }
+
+//---------------------------------------------------------
 //   cmdAddTie
 //---------------------------------------------------------
 
 void Score::cmdAddTie(bool addToChord)
       {
-      std::vector<Note*> noteList;
-      Element* el = selection().element();
-      if (el && el->isNote()) {
-            Note* n = toNote(el);
-            if (noteEntryMode())
-                  noteList = n->chord()->notes();
-            else
-                  noteList.push_back(n);
-            }
-      else if (el && el->isStem()) {
-            Chord* chord = toStem(el)->chord();
-            noteList = chord->notes();
-            }
-      else
-            noteList = selection().noteList();
+      const std::vector<Note*> noteList = cmdTieNoteList(selection(), noteEntryMode());
+
       if (noteList.empty()) {
             qDebug("no notes selected");
             return;
@@ -1314,6 +1332,66 @@ tie->setTicks(note2->chord()->segment()->tick() - note->chord()->segment()->tick
             nextInputPos(lastAddedChord, false);
       endCmd();
       }
+
+//---------------------------------------------------------
+//   cmdRemoveTie
+//---------------------------------------------------------
+
+void Score::cmdToggleTie()
+      {
+      const std::vector<Note*> noteList = cmdTieNoteList(selection(), noteEntryMode());
+
+      if (noteList.empty()) {
+            qDebug("no notes selected");
+            return;
+            }
+
+      bool canAddTies = false;
+      const size_t notes = noteList.size();
+      std::vector<Note*> tieNoteList(notes);
+
+      for (size_t i = 0; i < notes; ++i) {
+            Note* n = noteList[i];
+            if (n->tieFor()) {
+                  tieNoteList[i] = nullptr;
+                  }
+            else {
+                  Note* tieNote = searchTieNote(n);
+                  tieNoteList[i] = tieNote;
+                  if (tieNote)
+                        canAddTies = true;
+                  }
+            }
+
+      startCmd();
+
+      if (canAddTies) {
+            for (size_t i = 0; i < notes; ++i) {
+                  Note* note2 = tieNoteList[i];
+                  if (note2) {
+                        Note* note = noteList[i];
+
+                        Tie* tie = new Tie(this);
+                        tie->setStartNote(note);
+                        tie->setEndNote(note2);
+                        tie->setTrack(note->track());
+                        tie->setTick(note->chord()->segment()->tick());
+                        tie->setTicks(note2->chord()->segment()->tick() - note->chord()->segment()->tick());
+                        undoAddElement(tie);
+                        }
+                  }
+            }
+      else {
+            for (Note* n : noteList) {
+                  Tie* tie = n->tieFor();
+                  if (tie)
+                        undoRemoveElement(tie);
+                  }
+            }
+
+      endCmd();
+      }
+
 
 //---------------------------------------------------------
 //   cmdAddOttava
@@ -2152,7 +2230,7 @@ void Score::deleteAnnotationsFromRange(Segment* s1, Segment* s2, int track1, int
       for (int track = track1; track < track2; ++track) {
             if (!filter.canSelectVoice(track))
                   continue;
-            for (Segment* s = s1; s != s2; s = s->next1()) {
+            for (Segment* s = s1; s && s != s2; s = s->next1()) {
                   const auto annotations = s->annotations(); // make a copy since we alter the list
                   for (Element* annotation : annotations) {
                         // skip if not included in selection (eg, filter)
@@ -4513,9 +4591,10 @@ void Score::undoAddElement(Element* element)
                         Spanner* sp   = toSpanner(element);
                         Spanner* nsp  = toSpanner(ne);
                         int staffIdx1 = sp->track() / VOICES;
-                        int staffIdx2 = sp->track2() / VOICES;
+                        int tr2 = sp->effectiveTrack2();
+                        int staffIdx2 = tr2 / VOICES;
                         int diff      = staffIdx2 - staffIdx1;
-                        nsp->setTrack2((staffIdx + diff) * VOICES + (sp->track2() % VOICES));
+                        nsp->setTrack2((staffIdx + diff) * VOICES + (tr2 % VOICES));
                         nsp->setTrack(ntrack);
 
 #if 0 //whatdoesitdo?
@@ -4613,8 +4692,8 @@ void Score::undoAddElement(Element* element)
                               sm = cr2->staffIdx() - cr1->staffIdx();
                         Chord* c1 = findLinkedChord(cr1, score->staff(staffIdx));
                         Chord* c2 = findLinkedChord(cr2, score->staff(staffIdx + sm));
-                        Note* nn1 = c1->findNote(n1->pitch());
-                        Note* nn2 = c2 ? c2->findNote(n2->pitch()) : 0;
+                        Note* nn1 = c1->findNote(n1->pitch(), n1->unisonIndex());
+                        Note* nn2 = c2 ? c2->findNote(n2->pitch(), n2->unisonIndex()) : 0;
 
                         // create tie
                         Tie* ntie = toTie(ne);
@@ -4851,8 +4930,8 @@ void Score::undoChangeSpannerElements(Spanner* spanner, Element* startElement, E
       {
       Element* oldStartElement = spanner->startElement();
       Element* oldEndElement = spanner->endElement();
-      int startDeltaTrack = startElement->track() - oldStartElement->track();
-      int endDeltaTrack = endElement->track() - oldEndElement->track();
+      int startDeltaTrack = startElement && oldStartElement ? startElement->track() - oldStartElement->track() : 0;
+      int endDeltaTrack = endElement && oldEndElement ? endElement->track() - oldEndElement->track() : 0;
       // scan all spanners linked to this one
       for (ScoreElement* el : spanner->linkList()) {
             Spanner* sp = toSpanner(el);
@@ -4861,24 +4940,28 @@ void Score::undoChangeSpannerElements(Spanner* spanner, Element* startElement, E
             // if not the current spanner, but one linked to it, determine its new start and end elements
             // as modifications 'parallel' to the modifications of the current spanner's start and end elements
             if (sp != spanner) {
-                  // determine the track where to expect the 'parallel' start element
-                  int newTrack = sp->startElement()->track() + startDeltaTrack;
-                  // look in elements linked to new start element for an element with
-                  // same score as linked spanner and appropriate track
-                  for (ScoreElement* ee : startElement->linkList()) {
-                        Element* e = toElement(ee);
-                        if (e->score() == sp->score() && e->track() == newTrack) {
-                              newStartElement = e;
-                              break;
+                  if (startElement) {
+                        // determine the track where to expect the 'parallel' start element
+                        int newTrack = sp->startElement() ? sp->startElement()->track() + startDeltaTrack : 0;
+                        // look in elements linked to new start element for an element with
+                        // same score as linked spanner and appropriate track
+                        for (ScoreElement* ee : startElement->linkList()) {
+                              Element* e = toElement(ee);
+                              if (e->score() == sp->score() && e->track() == newTrack) {
+                                    newStartElement = e;
+                                    break;
+                                    }
                               }
                         }
                   // similarly to determine the 'parallel' end element
-                  newTrack = sp->endElement()->track() + endDeltaTrack;
-                  for (ScoreElement* ee : endElement->linkList()) {
-                        Element* e = toNote(ee);
-                        if (e->score() == sp->score() && e->track() == newTrack) {
-                              newEndElement = e;
-                              break;
+                  if (endElement) {
+                        int newTrack = sp->endElement() ? sp->endElement()->track() + endDeltaTrack : 0;
+                        for (ScoreElement* ee : endElement->linkList()) {
+                              Element* e = toElement(ee);
+                              if (e->score() == sp->score() && e->track() == newTrack) {
+                                    newEndElement = e;
+                                    break;
+                                    }
                               }
                         }
                   }
@@ -4998,7 +5081,11 @@ void Score::undoInsertTime(const Fraction& tick, const Fraction& len)
                         // and
                         //            +----spanner--------
                         //  +---add---+
+                        Element* startElement = s->startElement();
+                        Element* endElement = s->endElement();
+                        undoChangeSpannerElements(s, nullptr, nullptr);
                         s->undoChangeProperty(Pid::SPANNER_TICK, s->tick() + len);
+                        undoChangeSpannerElements(s, startElement, endElement);
                         }
                   }
             else {
@@ -5011,7 +5098,11 @@ void Score::undoInsertTime(const Fraction& tick, const Fraction& len)
                         Fraction t = s->tick() + len;
                         if (t < Fraction(0,1))
                               t = Fraction(0,1);
+                        Element* startElement = s->startElement();
+                        Element* endElement = s->endElement();
+                        undoChangeSpannerElements(s, nullptr, nullptr);
                         s->undoChangeProperty(Pid::SPANNER_TICK, t);
+                        undoChangeSpannerElements(s, startElement, endElement);
                         }
                   else if (s->tick() >= tick && s->tick2() <= tick2) {
                         //
@@ -5073,6 +5164,11 @@ void Score::undoInsertTime(const Fraction& tick, const Fraction& len)
 void Score::undoRemoveMeasures(Measure* m1, Measure* m2)
       {
       Q_ASSERT(m1 && m2);
+
+      const Fraction startTick = m1->tick();
+      const Fraction endTick = m2->endTick();
+      std::set<Spanner*> spannersToRemove;
+
       //
       //  handle ties which start before m1 and end in (m1-m2)
       //
@@ -5085,15 +5181,31 @@ void Score::undoRemoveMeasures(Measure* m1, Measure* m2)
                         continue;
                   Chord* c = toChord(e);
                   for (Note* n : c->notes()) {
+                        // Remove ties crossing measure range boundaries
                         Tie* t = n->tieBack();
-                        if (t && (t->startNote()->chord()->tick() < m1->tick()))
+                        if (t && (t->startNote()->chord()->tick() < startTick))
                               undoRemoveElement(t);
                         t = n->tieFor();
-                        if (t && (t->endNote()->chord()->tick() >= m2->endTick()))
+                        if (t && (t->endNote()->chord()->tick() >= endTick))
                               undoRemoveElement(t);
+
+                        // Do the same for other note-anchored spanners (e.g. glissandi).
+                        // Delay actual removing to avoid modifying lists inside loops over them.
+                        for (Spanner* sb : n->spannerBack()) {
+                              if (sb->tick() < startTick)
+                                    spannersToRemove.insert(sb);
+                              }
+                        for (Spanner* sf : n->spannerFor()) {
+                              if (sf->tick2() >= endTick)
+                                    spannersToRemove.insert(sf);
+                              }
                         }
                   }
             }
+
+      for (Spanner* s : spannersToRemove)
+            undoRemoveElement(s);
+
       undo(new RemoveMeasures(m1, m2));
       }
 

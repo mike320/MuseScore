@@ -302,13 +302,21 @@ AbstractPaletteController::RemoveAction UserPaletteController::showHideOrDeleteD
       msg.addButton(QMessageBox::Cancel);
       msg.setDefaultButton(hideButton);
 
-      msg.exec();
-      QAbstractButton* btn = msg.clickedButton();
-      if (btn == deleteButton)
-            return RemoveAction::DeletePermanently;
-      if (btn == hideButton)
-            return RemoveAction::Hide;
-      return RemoveAction::NoAction;
+      connect(msg, &QDialog::finished, this, [=]() {
+            RemoveAction action = RemoveAction::NoAction;
+
+            const QAbstractButton* btn = msg->clickedButton();
+            if (btn == deleteButton)
+                  action = RemoveAction::DeletePermanently;
+            else if (btn == hideButton)
+                  action = RemoveAction::Hide;
+
+            resultHandler(action);
+            });
+
+      msg->setWindowModality(Qt::ApplicationModal);
+      msg->setAttribute(Qt::WA_DeleteOnClose);
+      msg->open();
       }
 
 //---------------------------------------------------------
@@ -335,16 +343,24 @@ AbstractPaletteController::RemoveAction UserPaletteController::queryRemoveAction
             if (visible)
                   return showHideOrDeleteDialog(tr("Do you want to hide this custom palette cell or permanently delete it?"));
             else {
-                  const auto answer = QMessageBox::question(
-                        nullptr,
-                        "",
-                        tr("Do you want to permanently delete this custom palette cell?"),
-                        QMessageBox::Yes | QMessageBox::No
-                        );
+                  QMessageBox* msg = new QMessageBox(
+                     QMessageBox::Question,
+                     "",
+                     customCount == 1 ? tr("Do you want to permanently delete this custom palette cell?") : tr("Do you want to permanently delete these custom palette cells?"),
+                     QMessageBox::Yes | QMessageBox::No,
+                     mscore
+                     );
 
-                  if (answer == QMessageBox::Yes)
-                        return RemoveAction::DeletePermanently;
-                  //return RemoveAction::NoAction;
+                  connect(msg, &QDialog::finished, this, [=]() {
+                        const auto result = msg->standardButton(msg->clickedButton());
+                        if (result == QMessageBox::Yes)
+                              remove(removeIndices, RemoveAction::DeletePermanently);
+                        });
+
+                  msg->setWindowModality(Qt::ApplicationModal);
+                  msg->setAttribute(Qt::WA_DeleteOnClose);
+                  msg->open();
+                  return;
                   }
 
             return RemoveAction::NoAction;

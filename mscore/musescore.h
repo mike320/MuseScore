@@ -109,6 +109,7 @@ class PalettePanel;
 struct PaletteTree;
 class PaletteWidget;
 class PaletteWorkspace;
+class QmlDockWidget;
 
 struct PluginDescription;
 enum class SelState : char;
@@ -444,6 +445,9 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       QMessageBox* infoMsgBox;
       TourHandler* _tourHandler { 0 };
 
+      QWindow* _lastFocusWindow { nullptr };
+      bool _lastFocusWindowIsQQuickView { false };
+
       std::unique_ptr<GeneralAutoUpdater> autoUpdater;
 
       //---------------------
@@ -565,7 +569,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       void oscAction();
 #endif
       void deleteWorkspace();
-      void undoWorkspace();
+      void resetWorkspace();
       void showWorkspaceMenu();
       void switchLayer(const QString&);
       void switchPlayMode(int);
@@ -574,6 +578,8 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       void showMidiImportPanel();
       void changeWorkspace(QAction*);
       void onLongOperationFinished();
+
+      void onFocusWindowChanged(QWindow*);
 
       virtual QMenu* createPopupMenu() override;
 
@@ -717,6 +723,8 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       bool vRaster() const { return vRasterAction->isChecked(); }
 
       PaletteWorkspace* getPaletteWorkspace();
+      PaletteWidget* getPaletteWidget() { return paletteWidget; }
+      std::vector<QmlDockWidget*> qmlDockWidgets();
       void changeWorkspace(const QString& name);
 
       void disableCommands(bool val) { inChordEditor = val; }
@@ -928,6 +936,8 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       Q_INVOKABLE bool isInstalledExtension(QString extensionId);
 
       void focusScoreView();
+
+      void notifyElementDraggedToScoreView();
 
       ScriptRecorder* getScriptRecorder();
       bool runTestScripts(const QStringList& scripts);

@@ -210,18 +210,20 @@ void ScoreView::dragEnterEvent(QDragEnterEvent* event)
       const QMimeData* dta = event->mimeData();
 
       if (dta->hasFormat(mimeSymbolListFormat) || dta->hasFormat(mimeStaffListFormat)) {
-            if (event->possibleActions() & Qt::CopyAction) {
+            if (event->possibleActions() & Qt::CopyAction)
                   event->setDropAction(Qt::CopyAction);
+            if (event->dropAction() == Qt::CopyAction)
                   event->accept();
-                  }
             return;
             }
 
       if (dta->hasFormat(mimeSymbolFormat)) {
-            if (event->possibleActions() & Qt::CopyAction) {
+            if (event->possibleActions() & Qt::CopyAction)
                   event->setDropAction(Qt::CopyAction);
+            if (event->dropAction() == Qt::CopyAction)
                   event->accept();
-                  }
+
+            mscore->notifyElementDraggedToScoreView();
 
             QByteArray a = dta->data(mimeSymbolFormat);
 
@@ -371,6 +373,7 @@ void ScoreView::dragMoveEvent(QDragMoveEvent* event)
                   break;
             case ElementType::IMAGE:
             case ElementType::SYMBOL:
+            case ElementType::FSYMBOL:
             case ElementType::DYNAMIC:
             case ElementType::KEYSIG:
             case ElementType::CLEF:
@@ -465,6 +468,7 @@ void ScoreView::dropEvent(QDropEvent* event)
                         }
                         break;
                   case ElementType::SYMBOL:
+                  case ElementType::FSYMBOL:
                   case ElementType::IMAGE:
                         applyUserOffset = true;
                         // fall-thru
