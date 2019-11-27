@@ -10,6 +10,7 @@
 #include "interval.h"
 #include "element.h"
 #include "select.h"
+#include "xml.h"
 
 namespace Ms {
 
