@@ -386,6 +386,33 @@ void BrfWriter::dump(int len, const unsigned char* p)
       setIntegerBase(10);
       }
 
-} //namespace Ms
+int XmlWriter::assignLocalIndex(const Location& mainElementLocation)
+      {
+      return _linksIndexer.assignLocalIndex(mainElementLocation);
+      }
+
+//---------------------------------------------------------
+//   canWrite
+//---------------------------------------------------------
+
+bool XmlWriter::canWrite(const Element* e) const
+      {
+      if (!_clipboardmode)
+            return true;
+      return _filter.canSelect(e);
+      }
+
+//---------------------------------------------------------
+//   canWriteVoice
+//---------------------------------------------------------
+
+bool XmlWriter::canWriteVoice(int track) const
+      {
+      if (!_clipboardmode)
+            return true;
+      return _filter.canSelectVoice(track);
+      }
+*/ // XML writer
+}
 
 
