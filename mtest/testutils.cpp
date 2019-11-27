@@ -26,6 +26,7 @@
 #include "mscore/shortcut.h"
 #include "mscore/importmidi/importmidi_operations.h"
 #include "libmscore/xml.h"
+#include "libmscore/brf.h"
 #include "libmscore/excerpt.h"
 
 inline void initMyResources() {
@@ -56,6 +57,7 @@ extern Score::FileError importCompressedMusicXml(MasterScore*, const QString&);
 extern Score::FileError importMusicXml(MasterScore*, const QString&);
 extern Score::FileError importGTP(MasterScore*, const QString&);
 extern bool saveXml(Score*, const QString&);
+extern bool saveBrf(Score*, const QString&);
 bool debugMode = false;
 QString revision;
 bool enableTestMode;
